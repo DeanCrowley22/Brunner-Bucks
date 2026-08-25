@@ -1,0 +1,15 @@
+node_modules/
+.next/
+.env
+.env.local
+.vercel
+*.export.json
+private-exports/
+*.db-backup
+.dev-server*.log
+.ui-server*.log
+prisma/*.db
+prisma/*.db-journal
+coverage/
+*.log
+public/uploads/

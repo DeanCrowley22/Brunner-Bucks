@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionType {
+  EARNING
+  PURCHASE
+  CORRECTION
+  OPENING_BALANCE
+  RESET
+}
+
+enum PurchaseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FULFILLED
+  CANCELLED
+}
+
+model Teacher {
+  id           String   @id @default(cuid())
+  classroomId  String
+  classroom    Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  passwordHash String
+  displayName  String   @default("Teacher")
+  createdAt    DateTime @default(now())
+
+  @@index([classroomId])
+}
+
+model Classroom {
+  id               String            @id @default(cuid())
+  slug             String            @unique
+  name             String
+  classWealth      Int               @default(0)
+  currencyPlural   String            @default("Brunner Bucks")
+  currencySingular String            @default("Brunner Buck")
+  abbreviation     String            @default("BB")
+  schoolYear       String
+  active           Boolean           @default(true)
+  pupils           Pupil[]
+  categories       EarningCategory[]
+  rewards          Reward[]
+  milestones       ClassMilestone[]
+  transactions     Transaction[]
+  activities       ActivityLog[]
+  teachers         Teacher[]
+}
+
+model Pupil {
+  id                String            @id @default(cuid())
+  classroomId       String
+  classroom         Classroom         @relation(fields: [classroomId], references: [id])
+  firstName         String
+  surnameInitial    String?
+  displayName       String
+  username          String
+  pinHash           String
+  avatar            String            @default("Star")
+  avatarSkin        String            @default("warm")
+  avatarHair        String            @default("short")
+  avatarHairColor   String            @default("brown")
+  avatarEyes        String            @default("brown")
+  avatarOutfitId    String?
+  avatarAccessoryId String?
+  balance           Int               @default(0)
+  lifetimeEarnings  Int               @default(0)
+  archived          Boolean           @default(false)
+  teacherNote       String?
+  createdAt         DateTime          @default(now())
+  transactions      Transaction[]
+  purchases         PurchaseRequest[]
+  savingsGoals      SavingsGoal[]
+  reflections       PupilReflection[]
+  groupMembers      GroupMember[]
+  avatarItems       PupilAvatarItem[]
+
+  @@unique([classroomId, username])
+}
+
+model Group {
+  id          String        @id @default(cuid())
+  classroomId String
+  name        String
+  members     GroupMember[]
+
+  @@unique([classroomId, name])
+}
+
+model GroupMember {
+  groupId String
+  pupilId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  pupil   Pupil  @relation(fields: [pupilId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, pupilId])
+}
+
+model EarningCategory {
+  id            String        @id @default(cuid())
+  classroomId   String
+  classroom     Classroom     @relation(fields: [classroomId], references: [id])
+  name          String
+  icon          String        @default("Star")
+  description   String?
+  defaultAmount Int           @default(1)
+  active        Boolean       @default(true)
+  order         Int           @default(0)
+  transactions  Transaction[]
+}
+
+model Reward {
+  id               String            @id @default(cuid())
+  classroomId      String
+  classroom        Classroom         @relation(fields: [classroomId], references: [id])
+  name             String
+  description      String
+  price            Int
+  icon             String            @default("Gift")
+  category         String
+  stock            Int?
+  unlimitedStock   Boolean           @default(true)
+  active           Boolean           @default(true)
+  approvalRequired Boolean           @default(true)
+  maxPerPupil      Int?
+  cooldownDays     Int               @default(0)
+  instructions     String?
+  tier             String
+  transactions     Transaction[]
+  purchases        PurchaseRequest[]
+  savingsGoals     SavingsGoal[]
+  avatarItemId     String?
+  avatarItem       AvatarItem?       @relation(fields: [avatarItemId], references: [id])
+}
+
+model AvatarItem {
+  id          String            @id @default(cuid())
+  name        String
+  type        String
+  assetKey    String            @unique
+  rarity      String            @default("COMMON")
+  description String
+  active      Boolean           @default(true)
+  eventOnly   Boolean           @default(false)
+  owners      PupilAvatarItem[]
+  rewards     Reward[]
+}
+
+model PupilAvatarItem {
+  pupilId    String
+  itemId     String
+  pupil      Pupil      @relation(fields: [pupilId], references: [id], onDelete: Cascade)
+  item       AvatarItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  grantedBy  String
+  unlockedAt DateTime   @default(now())
+
+  @@id([pupilId, itemId])
+}
+
+model PurchaseRequest {
+  id           String         @id @default(cuid())
+  pupilId      String
+  pupil        Pupil          @relation(fields: [pupilId], references: [id])
+  rewardId     String
+  reward       Reward         @relation(fields: [rewardId], references: [id])
+  price        Int
+  status       PurchaseStatus @default(PENDING)
+  teacherNote  String?
+  createdAt    DateTime       @default(now())
+  processedAt  DateTime?
+  transactions Transaction[]
+}
+
+model Transaction {
+  id                String           @id @default(cuid())
+  pupilId           String
+  pupil             Pupil            @relation(fields: [pupilId], references: [id])
+  classroomId       String
+  classroom         Classroom        @relation(fields: [classroomId], references: [id])
+  type              TransactionType
+  amount            Int
+  balanceBefore     Int
+  balanceAfter      Int
+  classWealthImpact Int              @default(0)
+  categoryId        String?
+  category          EarningCategory? @relation(fields: [categoryId], references: [id])
+  rewardId          String?
+  reward            Reward?          @relation(fields: [rewardId], references: [id])
+  purchaseRequestId String?
+  purchaseRequest   PurchaseRequest? @relation(fields: [purchaseRequestId], references: [id])
+  reason            String
+  teacherNote       String?
+  reversalOfId      String?
+  createdBy         String
+  createdAt         DateTime         @default(now())
+}
+
+model SavingsGoal {
+  id          String    @id @default(cuid())
+  pupilId     String
+  pupil       Pupil     @relation(fields: [pupilId], references: [id])
+  rewardId    String
+  reward      Reward    @relation(fields: [rewardId], references: [id])
+  active      Boolean   @default(true)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model ClassMilestone {
+  id          String    @id @default(cuid())
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  name        String
+  description String
+  target      Int
+  reward      String
+  icon        String    @default("Trophy")
+  active      Boolean   @default(true)
+  unlockedAt  DateTime?
+  completedAt DateTime?
+  teacherNote String?
+
+  @@unique([classroomId, target])
+}
+
+model PupilReflection {
+  id        String   @id @default(cuid())
+  pupilId   String
+  pupil     Pupil    @relation(fields: [pupilId], references: [id])
+  month     String
+  earned    Int
+  spent     Int
+  saved     Int
+  savingFor String?
+  happy     String
+  nextMonth String
+  createdAt DateTime @default(now())
+
+  @@unique([pupilId, month])
+}
+
+model ActivityLog {
+  id          String    @id @default(cuid())
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id])
+  pupilId     String?
+  type        String
+  description String
+  amount      Int?
+  metadata    String?
+  createdAt   DateTime  @default(now())
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model ManagementAccessAttempt {
+  fingerprint String    @id
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model LoginAccessAttempt {
+  key         String    @id
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
+model SchoolYear {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  active    Boolean   @default(false)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+}
