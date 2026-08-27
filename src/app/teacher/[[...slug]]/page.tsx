@@ -280,16 +280,17 @@ export default async function TeacherExperience({
         <section className="card profile-admin">
           <div>
             <h2>Account access</h2>
-            <p className="muted">Reset this pupil's PIN or remove them from the active class.</p>
+            <p className="muted">Reset this pupil's PIN or permanently remove their account and Bucks totals.</p>
           </div>
           <form action={resetPin} className="profile-pin-form">
             <input type="hidden" name="id" value={p.id} />
             <label>New four-digit PIN<input className="input" name="pin" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="e.g. 4821" required /></label>
             <button className="btn light">Reset PIN</button>
           </form>
-          <form action={removePupil}>
+          <form action={removePupil} className="permanent-delete-form">
             <input type="hidden" name="id" value={p.id} />
-            <button className="btn danger">Remove pupil</button>
+            <label><input type="checkbox" name="confirm" value="DELETE" required /> I understand this permanently deletes the pupil and their history, and removes {p.lifetimeEarnings.toLocaleString()} BB from Class Wealth.</label>
+            <button className="btn danger">Permanently delete pupil</button>
           </form>
         </section>
         <section className="card event-unlocks"><div><span className="eyebrow">Teacher event rewards</span><h2>Unlock a rare avatar item</h2><p className="muted">Grant an event-only collectible without charging Bucks.</p></div>{eventItems.length?<form action={grantAvatarItem}><input type="hidden" name="pupilId" value={p.id}/><select className="input" name="itemId">{eventItems.map(item=><option value={item.id} key={item.id}>{item.name} · {item.rarity}</option>)}</select><button className="btn gold">Unlock item</button></form>:<p className="muted">No event-only items are configured.</p>}</section>

@@ -329,24 +329,38 @@ export async function deleteGroup(f: FormData) {
 }
 export async function removePupil(f: FormData) {
   const id = val(f, "id"),
-    { pupil: ownedPupil } = await teacherPupil(id),
-    p = await db.pupil.findFirstOrThrow({
+    { pupil: ownedPupil } = await teacherPupil(id);
+  if (val(f, "confirm") !== "DELETE") throw new Error("Permanent deletion must be confirmed");
+  const classroom = await classroomForSession(ownedPupil.classroomId);
+  await db.$transaction(async (tx) => {
+    const p = await tx.pupil.findFirstOrThrow({
       where: { id: ownedPupil.id, classroomId: ownedPupil.classroomId },
-      include: { _count: { select: { transactions: true, purchases: true } } },
     });
-  if (p._count.transactions || p._count.purchases) {
-    await db.pupil.update({ where: { id }, data: { archived: true } });
-    await db.activityLog.create({
-      data: {
-        classroomId: p.classroomId,
-        pupilId: p.id,
-        type: "PUPIL_ARCHIVED",
-        description: `${p.displayName} was removed from the active class`,
-      },
+    const currentClassroom = await tx.classroom.findUniqueOrThrow({ where: { id: p.classroomId } });
+    const wealthToRemove = Math.min(p.lifetimeEarnings, currentClassroom.classWealth);
+    const correctedWealth = currentClassroom.classWealth - wealthToRemove;
+
+    await tx.transaction.deleteMany({ where: { pupilId: p.id } });
+    await tx.purchaseRequest.deleteMany({ where: { pupilId: p.id } });
+    await tx.savingsGoal.deleteMany({ where: { pupilId: p.id } });
+    await tx.pupilReflection.deleteMany({ where: { pupilId: p.id } });
+    await tx.pupilAvatarItem.deleteMany({ where: { pupilId: p.id } });
+    await tx.groupMember.deleteMany({ where: { pupilId: p.id } });
+    await tx.activityLog.deleteMany({ where: { pupilId: p.id } });
+    await tx.pupil.delete({ where: { id: p.id } });
+    await tx.classroom.update({
+      where: { id: p.classroomId },
+      data: { classWealth: correctedWealth },
     });
-  } else await db.pupil.delete({ where: { id } });
-  const classroom = await classroomForSession(p.classroomId);
+    await tx.classMilestone.updateMany({
+      where: { classroomId: p.classroomId, target: { gt: correctedWealth }, completedAt: null },
+      data: { unlockedAt: null },
+    });
+  });
   revalidatePath(`/class/${classroom.slug}/teacher/pupils`);
+  revalidatePath(`/class/${classroom.slug}/teacher/reports`);
+  revalidatePath(`/class/${classroom.slug}/teacher/activity`);
+  revalidatePath(`/class/${classroom.slug}/display`);
   redirect(`/class/${classroom.slug}/teacher/pupils`);
 }
 export async function createReward(f: FormData) {
