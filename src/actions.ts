@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { awardBucks, approvePurchase } from "@/lib/economy";
+import { awardBucks, approvePurchase, removeBucks } from "@/lib/economy";
 import { clearLoginFailures, loginAttemptKey, loginIsLocked, recordLoginFailure, requireManagement, requirePupil, requireTeacher, setSession, unlockManagementWithPin } from "@/lib/auth";
 import { classroomForSession, makeClassroomSlug } from "@/lib/classroom";
 const val = (f: FormData, k: string) => String(f.get(k) || "").trim();
@@ -80,6 +80,23 @@ export async function awardAction(f: FormData) {
   );
   revalidatePath(`/class/${classroom.slug}/teacher`);
   redirect(`/class/${classroom.slug}/teacher/award?success=1&total=${result.total}&count=${result.count}`);
+}
+export async function removeBucksAction(f: FormData) {
+  const session = await requireTeacher();
+  const classroom = await classroomForSession(session.classroomId);
+  const result = await removeBucks(
+    session.classroomId,
+    f.getAll("pupilId").map(String),
+    Number(val(f, "amount")),
+    val(f, "reason"),
+    val(f, "note"),
+  );
+  revalidatePath(`/class/${classroom.slug}/teacher`);
+  revalidatePath(`/class/${classroom.slug}/teacher/pupils`);
+  revalidatePath(`/class/${classroom.slug}/teacher/activity`);
+  revalidatePath(`/class/${classroom.slug}/teacher/reports`);
+  revalidatePath(`/class/${classroom.slug}/pupil`);
+  redirect(`/class/${classroom.slug}/teacher/award?removed=1&total=${result.total}&count=${result.count}&capped=${result.capped}`);
 }
 export async function addPupil(f: FormData) {
   const session = await requireTeacher();

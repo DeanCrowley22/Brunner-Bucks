@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { deductionResult } from "./rules";
 
 export async function awardBucks(
   classroomId: string,
@@ -55,6 +56,68 @@ export async function awardBucks(
       data: { unlockedAt: new Date() },
     });
     return { count: pupils.length, total: amount * pupils.length };
+  });
+}
+
+export async function removeBucks(
+  classroomId: string,
+  pupilIds: string[],
+  amount: number,
+  reason: string,
+  note?: string,
+) {
+  if (!Number.isInteger(amount) || amount < 1 || amount > 10000 || !pupilIds.length)
+    throw new Error("Invalid deduction");
+  const cleanReason = reason.trim();
+  if (cleanReason.length < 2 || cleanReason.length > 160)
+    throw new Error("A short reason is required");
+  return db.$transaction(async (tx) => {
+    const pupils = await tx.pupil.findMany({
+      where: { id: { in: pupilIds }, classroomId, archived: false },
+    });
+    if (pupils.length !== new Set(pupilIds).size)
+      throw new Error("Pupil not found in this classroom");
+    let total = 0;
+    let count = 0;
+    let capped = 0;
+    for (const pupil of pupils) {
+      const result = deductionResult(pupil.balance, amount);
+      if (result.removed === 0) {
+        capped++;
+        continue;
+      }
+      if (result.removed < amount) capped++;
+      await tx.pupil.update({
+        where: { id: pupil.id },
+        data: { balance: { decrement: result.removed } },
+      });
+      await tx.transaction.create({
+        data: {
+          pupilId: pupil.id,
+          classroomId,
+          type: "CORRECTION",
+          amount: -result.removed,
+          balanceBefore: pupil.balance,
+          balanceAfter: result.balance,
+          classWealthImpact: 0,
+          reason: `Bucks removed: ${cleanReason}`,
+          teacherNote: note?.trim() || null,
+          createdBy: "TEACHER",
+        },
+      });
+      await tx.activityLog.create({
+        data: {
+          classroomId,
+          pupilId: pupil.id,
+          type: "BUCKS_REMOVED",
+          description: `${pupil.displayName} had ${result.removed} Bucks removed: ${cleanReason}`,
+          amount: -result.removed,
+        },
+      });
+      total += result.removed;
+      count++;
+    }
+    return { count, total, capped };
   });
 }
 

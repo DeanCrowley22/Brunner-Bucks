@@ -4,6 +4,7 @@ import { getSession, requireTeacher, logout } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import {
   awardAction,
+  removeBucksAction,
   addPupil,
   approveAction,
   rejectAction,
@@ -34,6 +35,7 @@ import {
   FileText,
   Activity,
   PlusCircle,
+  MinusCircle,
   ArrowLeft,
   Target,
   TrendingUp,
@@ -42,7 +44,7 @@ import { PupilAvatar } from "@/components/pupil-avatar";
 import {AwardCelebration,AwardSubmitControls} from "@/components/award-experience";
 const nav = [
   ["", "Dashboard", LayoutDashboard],
-  ["award", "Award Bucks", PlusCircle],
+  ["award", "Manage Bucks", PlusCircle],
   ["pupils", "Pupils", Users],
   ["groups", "Groups", Users],
   ["shop", "Reward Shop", Gift],
@@ -131,7 +133,7 @@ export default async function TeacherExperience({
   searchParams,
 }: {
   params: Promise<{ classSlug?: string; slug?: string[] }>;
-  searchParams: Promise<{ group?: string;success?:string;total?:string;count?:string }>;
+  searchParams: Promise<{ group?: string;success?:string;removed?:string;total?:string;count?:string;capped?:string }>;
 }) {
   const resolvedParams = await params;
   if (!resolvedParams.classSlug) {
@@ -164,9 +166,10 @@ export default async function TeacherExperience({
     return (
       <Frame page={page}>
         <AwardCelebration active={q.success==="1"} total={Number(q.total||0)} count={Number(q.count||0)}/>
+        {q.removed==="1"&&<div className="deduction-success"><MinusCircle/><div><b>{Number(q.total||0)} Brunner Bucks removed</b><small>Across {Number(q.count||0)} {Number(q.count||0)===1?"pupil":"pupils"}{Number(q.capped||0)>0?" · balances were protected from going below zero":""}</small></div></div>}
         <div className="page-head">
           <div>
-            <h1>Award Brunner Bucks</h1>
+            <h1>Manage Brunner Bucks</h1>
             <p className="muted">
               Select pupils, choose a reason and celebrate their effort.
             </p>
@@ -219,6 +222,25 @@ export default async function TeacherExperience({
             </label>
           </div>
           <AwardSubmitControls/>
+        </form>
+        <form action={removeBucksAction} className="card deduction-card section-gap">
+          <div className="deduction-heading"><span><MinusCircle/></span><div><h2>Remove Brunner Bucks</h2><p className="muted">Use a fair deduction when needed. Spendable balances can never fall below zero, and Class Wealth is not reduced.</p></div></div>
+          <div className="pupil-select-grid">
+            {pupils.map((p) => (
+              <label key={p.id} className="pupil-select deduction-select">
+                <input type="checkbox" name="pupilId" value={p.id} defaultChecked={selected.includes(p.id)} />
+                <PupilAvatar name={p.displayName} skin={p.avatarSkin} hair={p.avatarHair} hairColor={p.avatarHairColor} eyes={p.avatarEyes} outfit={p.avatarOutfitId} accessory={p.avatarAccessoryId}/>
+                <span><b>{p.displayName}</b><small>{p.balance} BB available</small></span>
+              </label>
+            ))}
+          </div>
+          <hr />
+          <div className="grid stats deduction-fields">
+            <label>Amount to remove<input className="input" name="amount" type="number" min="1" max="10000" defaultValue="5" required /></label>
+            <label>Reason<input className="input" name="reason" maxLength={160} placeholder="e.g. Disrupting learning" required /></label>
+            <label>Optional private note<input className="input" name="note" maxLength={300} /></label>
+          </div>
+          <button className="btn danger deduction-button"><MinusCircle/> Remove selected Bucks</button>
         </form>
       </Frame>
     );
