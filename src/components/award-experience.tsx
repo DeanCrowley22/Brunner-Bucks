@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Coins, Volume2 } from "lucide-react";
+import { Coins, MinusCircle, Volume2 } from "lucide-react";
 
 export function playCoinDeposit() {
   const AudioCtx =
@@ -90,6 +90,76 @@ export function playCoinDeposit() {
   setTimeout(() => ctx.close(), 1400);
 }
 
+export function playCoinRemoval() {
+  const AudioCtx =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext: typeof AudioContext })
+      .webkitAudioContext;
+
+  if (!AudioCtx) return;
+
+  const ctx = new AudioCtx();
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  const compressor = ctx.createDynamicsCompressor();
+
+  master.gain.setValueAtTime(0.48, now);
+  compressor.threshold.setValueAtTime(-20, now);
+  compressor.knee.setValueAtTime(12, now);
+  compressor.ratio.setValueAtTime(5, now);
+  master.connect(compressor).connect(ctx.destination);
+
+  const fallingTone = ctx.createOscillator();
+  const fallingGain = ctx.createGain();
+  fallingTone.type = "triangle";
+  fallingTone.frequency.setValueAtTime(720, now);
+  fallingTone.frequency.exponentialRampToValueAtTime(145, now + 0.48);
+  fallingGain.gain.setValueAtTime(0.0001, now);
+  fallingGain.gain.exponentialRampToValueAtTime(0.13, now + 0.015);
+  fallingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+  fallingTone.connect(fallingGain).connect(master);
+  fallingTone.start(now);
+  fallingTone.stop(now + 0.52);
+
+  [
+    [0.02, 930, 0.18],
+    [0.12, 690, 0.16],
+    [0.23, 475, 0.14],
+  ].forEach(([delay, frequency, volume]) => {
+    [1, 1.58, 2.31].forEach((ratio, index) => {
+      const coin = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const time = now + delay;
+      coin.type = index === 0 ? "triangle" : "sine";
+      coin.frequency.setValueAtTime(frequency * ratio, time);
+      coin.frequency.exponentialRampToValueAtTime(
+        frequency * ratio * 0.82,
+        time + 0.14,
+      );
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.exponentialRampToValueAtTime(volume / (index + 1), time + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.16);
+      coin.connect(gain).connect(master);
+      coin.start(time);
+      coin.stop(time + 0.18);
+    });
+  });
+
+  const finish = ctx.createOscillator();
+  const finishGain = ctx.createGain();
+  finish.type = "sine";
+  finish.frequency.setValueAtTime(135, now + 0.34);
+  finish.frequency.exponentialRampToValueAtTime(72, now + 0.68);
+  finishGain.gain.setValueAtTime(0.0001, now + 0.34);
+  finishGain.gain.exponentialRampToValueAtTime(0.17, now + 0.36);
+  finishGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+  finish.connect(finishGain).connect(master);
+  finish.start(now + 0.34);
+  finish.stop(now + 0.72);
+
+  setTimeout(() => ctx.close(), 1200);
+}
+
 export function AwardSubmitControls() {
   return (
     <div className="award-submit-panel simple">
@@ -113,6 +183,26 @@ export function CoinSoundButton() {
     >
       <Volume2 /> Play coin sound
     </button>
+  );
+}
+
+export function DeductionSubmitControls() {
+  return (
+    <div className="award-submit-panel simple deduction-submit-panel">
+      <button
+        className="btn danger deduction-button"
+        onClick={() => playCoinRemoval()}
+      >
+        <MinusCircle /> Remove selected Bucks
+      </button>
+      <button
+        type="button"
+        className="btn light coin-sound-button"
+        onClick={() => playCoinRemoval()}
+      >
+        <Volume2 /> Preview removal sound
+      </button>
+    </div>
   );
 }
 
@@ -141,6 +231,37 @@ export function AwardCelebration({
         <b>{total} Brunner Bucks awarded</b>
         <small>
           Across {count} {count === 1 ? "pupil" : "pupils"}
+        </small>
+      </div>
+    </div>
+  );
+}
+
+export function DeductionCelebration({
+  active,
+  total,
+  count,
+  capped,
+}: {
+  active: boolean;
+  total: number;
+  count: number;
+  capped: number;
+}) {
+  useEffect(() => {
+    if (active) playCoinRemoval();
+  }, [active]);
+
+  if (!active) return null;
+
+  return (
+    <div className="deduction-success">
+      <MinusCircle />
+      <div>
+        <b>{total} Brunner Bucks removed</b>
+        <small>
+          Across {count} {count === 1 ? "pupil" : "pupils"}
+          {capped > 0 ? " · balances were protected from going below zero" : ""}
         </small>
       </div>
     </div>

@@ -41,7 +41,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { PupilAvatar } from "@/components/pupil-avatar";
-import {AwardCelebration,AwardSubmitControls} from "@/components/award-experience";
+import {AwardCelebration,AwardSubmitControls,DeductionCelebration,DeductionSubmitControls} from "@/components/award-experience";
 const nav = [
   ["", "Dashboard", LayoutDashboard],
   ["award", "Manage Bucks", PlusCircle],
@@ -166,7 +166,7 @@ export default async function TeacherExperience({
     return (
       <Frame page={page}>
         <AwardCelebration active={q.success==="1"} total={Number(q.total||0)} count={Number(q.count||0)}/>
-        {q.removed==="1"&&<div className="deduction-success"><MinusCircle/><div><b>{Number(q.total||0)} Brunner Bucks removed</b><small>Across {Number(q.count||0)} {Number(q.count||0)===1?"pupil":"pupils"}{Number(q.capped||0)>0?" · balances were protected from going below zero":""}</small></div></div>}
+        <DeductionCelebration active={q.removed==="1"} total={Number(q.total||0)} count={Number(q.count||0)} capped={Number(q.capped||0)}/>
         <div className="page-head">
           <div>
             <h1>Manage Brunner Bucks</h1>
@@ -202,7 +202,7 @@ export default async function TeacherExperience({
                 name="amount"
                 type="number"
                 min="1"
-                defaultValue="5"
+                defaultValue="1"
                 required
               />
             </label>
@@ -236,11 +236,11 @@ export default async function TeacherExperience({
           </div>
           <hr />
           <div className="grid stats deduction-fields">
-            <label>Amount to remove<input className="input" name="amount" type="number" min="1" max="10000" defaultValue="5" required /></label>
+            <label>Amount to remove<input className="input" name="amount" type="number" min="1" max="10000" defaultValue="1" required /></label>
             <label>Reason<input className="input" name="reason" maxLength={160} placeholder="e.g. Disrupting learning" required /></label>
             <label>Optional private note<input className="input" name="note" maxLength={300} /></label>
           </div>
-          <button className="btn danger deduction-button"><MinusCircle/> Remove selected Bucks</button>
+          <DeductionSubmitControls/>
         </form>
       </Frame>
     );
