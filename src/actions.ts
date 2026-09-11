@@ -75,8 +75,7 @@ export async function awardAction(f: FormData) {
     session.classroomId,
     f.getAll("pupilId").map(String),
     Number(val(f, "amount")),
-    val(f, "categoryId"),
-    val(f, "note"),
+    val(f, "reason"),
   );
   revalidatePath(`/class/${classroom.slug}/teacher`);
   redirect(`/class/${classroom.slug}/teacher/award?success=1&total=${result.total}&count=${result.count}`);
@@ -89,7 +88,6 @@ export async function removeBucksAction(f: FormData) {
     f.getAll("pupilId").map(String),
     Number(val(f, "amount")),
     val(f, "reason"),
-    val(f, "note"),
   );
   revalidatePath(`/class/${classroom.slug}/teacher`);
   revalidatePath(`/class/${classroom.slug}/teacher/pupils`);

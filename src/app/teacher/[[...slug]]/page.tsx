@@ -151,10 +151,6 @@ export default async function TeacherExperience({
         where: { classroomId: c.id, archived: false },
         orderBy: { displayName: "asc" },
       }),
-      cats = await db.earningCategory.findMany({
-        where: { classroomId: c.id, active: true },
-        orderBy: { order: "asc" },
-      }),
       selected = q.group
         ? (
             await db.groupMember.findMany({
@@ -171,7 +167,7 @@ export default async function TeacherExperience({
           <div>
             <h1>Manage Brunner Bucks</h1>
             <p className="muted">
-              Select pupils, choose a reason and celebrate their effort.
+              Select pupils, choose an amount and optionally record a reason.
             </p>
           </div>
         </div>
@@ -207,18 +203,8 @@ export default async function TeacherExperience({
               />
             </label>
             <label>
-              Reason
-              <select className="input" name="categoryId">
-                {cats.map((x) => (
-                  <option value={x.id} key={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Optional note
-              <input className="input" name="note" />
+              Optional reason
+              <input className="input" name="reason" maxLength={160} placeholder="e.g. Brilliant effort" />
             </label>
           </div>
           <AwardSubmitControls/>
@@ -237,8 +223,7 @@ export default async function TeacherExperience({
           <hr />
           <div className="grid stats deduction-fields">
             <label>Amount to remove<input className="input" name="amount" type="number" min="1" max="10000" defaultValue="1" required /></label>
-            <label>Reason<input className="input" name="reason" maxLength={160} placeholder="e.g. Disrupting learning" required /></label>
-            <label>Optional private note<input className="input" name="note" maxLength={300} /></label>
+            <label>Optional reason<input className="input" name="reason" maxLength={160} placeholder="e.g. Disrupting learning" /></label>
           </div>
           <DeductionSubmitControls/>
         </form>

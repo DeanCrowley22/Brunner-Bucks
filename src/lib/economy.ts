@@ -5,20 +5,17 @@ export async function awardBucks(
   classroomId: string,
   pupilIds: string[],
   amount: number,
-  categoryId: string,
-  note?: string,
+  reason?: string,
 ) {
   if (!Number.isInteger(amount) || amount < 1 || amount > 10000 || !pupilIds.length)
     throw new Error("Invalid award");
+  const cleanReason = reason?.trim() || "";
+  if (cleanReason.length > 160) throw new Error("Reason is too long");
   return db.$transaction(async (tx) => {
     const pupils = await tx.pupil.findMany({
       where: { id: { in: pupilIds }, classroomId, archived: false },
     });
     if (pupils.length !== new Set(pupilIds).size) throw new Error("Pupil not found in this classroom");
-    const category = await tx.earningCategory.findFirst({
-      where: { id: categoryId, classroomId, active: true },
-    });
-    if (!category) throw new Error("Category unavailable");
     for (const pupil of pupils) {
       await tx.pupil.update({
         where: { id: pupil.id },
@@ -34,9 +31,7 @@ export async function awardBucks(
           balanceBefore: pupil.balance,
           balanceAfter: pupil.balance + amount,
           classWealthImpact: amount,
-          categoryId,
-          reason: category.name,
-          teacherNote: note,
+          reason: cleanReason || "Brunner Bucks awarded",
           createdBy: "TEACHER",
         },
       });
@@ -45,7 +40,7 @@ export async function awardBucks(
           classroomId,
           pupilId: pupil.id,
           type: "BUCKS_EARNED",
-          description: `${pupil.displayName} earned ${amount} Bucks for ${category.name}`,
+          description: `${pupil.displayName} earned ${amount} Bucks${cleanReason ? `: ${cleanReason}` : ""}`,
           amount,
         },
       });
@@ -63,14 +58,12 @@ export async function removeBucks(
   classroomId: string,
   pupilIds: string[],
   amount: number,
-  reason: string,
-  note?: string,
+  reason?: string,
 ) {
   if (!Number.isInteger(amount) || amount < 1 || amount > 10000 || !pupilIds.length)
     throw new Error("Invalid deduction");
-  const cleanReason = reason.trim();
-  if (cleanReason.length < 2 || cleanReason.length > 160)
-    throw new Error("A short reason is required");
+  const cleanReason = reason?.trim() || "";
+  if (cleanReason.length > 160) throw new Error("Reason is too long");
   return db.$transaction(async (tx) => {
     const pupils = await tx.pupil.findMany({
       where: { id: { in: pupilIds }, classroomId, archived: false },
@@ -100,8 +93,7 @@ export async function removeBucks(
           balanceBefore: pupil.balance,
           balanceAfter: result.balance,
           classWealthImpact: 0,
-          reason: `Bucks removed: ${cleanReason}`,
-          teacherNote: note?.trim() || null,
+          reason: cleanReason ? `Bucks removed: ${cleanReason}` : "Brunner Bucks removed",
           createdBy: "TEACHER",
         },
       });
@@ -110,7 +102,7 @@ export async function removeBucks(
           classroomId,
           pupilId: pupil.id,
           type: "BUCKS_REMOVED",
-          description: `${pupil.displayName} had ${result.removed} Bucks removed: ${cleanReason}`,
+          description: `${pupil.displayName} had ${result.removed} Bucks removed${cleanReason ? `: ${cleanReason}` : ""}`,
           amount: -result.removed,
         },
       });
